@@ -1,4 +1,4 @@
-package com.studyhop.app;
+package au.com.studyhop.app;
 
 import com.getcapacitor.BridgeActivity;
 

@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.studyhop.app"
+    namespace = "au.com.studyhop.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.studyhop.app"
+        applicationId "au.com.studyhop.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode (System.getenv("APP_VERSION_CODE") ?: "1").toInteger()
