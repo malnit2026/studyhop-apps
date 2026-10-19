@@ -2,7 +2,8 @@
 // 1. a distribution certificate and an App Store provisioning profile are created for this run through the
 //    App Store Connect API (the key is the ASC_* secrets), put in a temporary keychain,
 // 2. xcodebuild archives with manual signing and exports straight to App Store Connect,
-// 3. the certificate is revoked and the profile deleted, whatever happened.
+// 3. the PREVIOUS run's certificate and profile are revoked at the start of each run (Apple validates the signature
+//    minutes after upload, so this run's certificate must outlive the run; revoking it at once gives ITMS-90035).
 // Env: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8. Run from the repo root.
 import { execFileSync, spawnSync } from "node:child_process";
 import { createPrivateKey, createSign, randomBytes } from "node:crypto";
@@ -36,14 +37,29 @@ async function api(method, path, body) {
 }
 
 let certId = null, profileId = null, keychain = null;
-async function cleanup() {
+const PROFILE_PREFIX = "StudyHop CI ";
+/** Earlier runs' profiles (named "StudyHop CI <run>") and the certificates they used; this run's are left alone. */
+async function revokeOldRuns() {
+  log("Revoke previous runs' certificates");
+  const list = await api("GET", "/v1/profiles?filter[profileType]=IOS_APP_STORE&include=certificates&limit=200");
+  for (const prof of list.data) {
+    if (!prof.attributes.name.startsWith(PROFILE_PREFIX) || prof.id === profileId) continue;
+    for (const c of prof.relationships?.certificates?.data ?? []) if (c.id !== certId) await api("DELETE", `/v1/certificates/${c.id}`).then(() => console.log("revoked certificate", c.id)).catch((e) => console.log("revoke:", e.message));
+    await api("DELETE", `/v1/profiles/${prof.id}`).then(() => console.log("deleted profile", prof.attributes.name)).catch((e) => console.log("delete:", e.message));
+  }
+}
+async function cleanup(failed) {
   log("Cleanup");
-  if (profileId) await api("DELETE", `/v1/profiles/${profileId}`).then(() => console.log("profile deleted")).catch((e) => console.log("profile delete:", e.message));
-  if (certId) await api("DELETE", `/v1/certificates/${certId}`).then(() => console.log("certificate revoked")).catch((e) => console.log("certificate revoke:", e.message));
+  if (failed) {   // nothing was uploaded, so this run's certificate can go now
+    if (profileId) await api("DELETE", `/v1/profiles/${profileId}`).catch(() => {});
+    if (certId) await api("DELETE", `/v1/certificates/${certId}`).catch(() => {});
+  } else console.log("certificate kept until the next run (Apple still has to validate this upload)");
   if (keychain) spawnSync("security", ["delete-keychain", keychain]);
 }
 
+let failed = false;
 try {
+  await revokeOldRuns();
   log("Bundle ID");
   let b = await api("GET", `/v1/bundleIds?filter[identifier]=${encodeURIComponent(BUNDLE_ID)}&filter[platform]=IOS`);
   let bundle = b.data.find((x) => x.attributes.identifier === BUNDLE_ID);
@@ -80,6 +96,10 @@ try {
   sh("security", ["create-keychain", "-p", pass, keychain]);
   sh("security", ["set-keychain-settings", "-lut", "21600", keychain]);
   sh("security", ["unlock-keychain", "-p", pass, keychain]);
+  // Apple's intermediate (WWDR G3) so the signature chain is complete inside the temporary keychain.
+  const wwdr = join(WORK, "AppleWWDRCAG3.cer");
+  writeFileSync(wwdr, Buffer.from(await (await fetch("https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer")).arrayBuffer()));
+  sh("security", ["import", wwdr, "-k", keychain, "-T", "/usr/bin/codesign"]);
   sh("security", ["import", p12, "-k", keychain, "-P", pass, "-T", "/usr/bin/codesign", "-T", "/usr/bin/security", "-T", "/usr/bin/productbuild"]);
   sh("security", ["set-key-partition-list", "-S", "apple-tool:,apple:,codesign:", "-s", "-k", pass, keychain]);
   const existing = sh("security", ["list-keychains", "-d", "user"]).split("\n").map((l) => l.trim().replace(/^"|"$/g, "")).filter(Boolean);
@@ -113,8 +133,8 @@ try {
   rmSync(keyPath, { force: true });
 } catch (e) {
   console.error("\nFAILED:", e.message);
-  process.exitCode = 1;
+  process.exitCode = 1; failed = true;
 } finally {
-  await cleanup();
+  await cleanup(failed);
   if (existsSync(WORK)) rmSync(WORK, { recursive: true, force: true });
 }
