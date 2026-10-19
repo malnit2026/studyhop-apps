@@ -1,0 +1,26 @@
+{
+  "name": "studyhop-apps",
+  "version": "1.0.0",
+  "private": true,
+  "description": "StudyHop for iPhone, iPad and Android: a Capacitor shell around studyhop.com.au",
+  "type": "module",
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "target": "node scripts/set-target.mjs",
+    "sync": "npx cap sync",
+    "assets": "npx @capacitor/assets generate --iconBackgroundColor '#4F46E5' --iconBackgroundColorDark '#4F46E5' --splashBackgroundColor '#4F46E5' --splashBackgroundColorDark '#4F46E5'"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/browser": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/splash-screen": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.0.0"
+  }
+}

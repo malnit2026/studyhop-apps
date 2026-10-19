@@ -1,0 +1,48 @@
+name: Build Android
+# Builds a signed APK (install on a phone) and AAB (upload to Google Play). Run from Actions > Build Android.
+# Secrets: ANDROID_KEYSTORE_B64 (base64 of studyhop-release.jks), ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD.
+# Without the secrets it still builds, unsigned (debug-signed APK only).
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Address the app opens"
+        type: choice
+        default: test
+        options: [live, test]
+      version:
+        description: "Version name shown in the store (e.g. 1.0)"
+        default: "1.0"
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: 21 }
+      - uses: android-actions/setup-android@v3
+      - run: npm ci
+      - run: node scripts/set-target.mjs ${{ inputs.target }}
+      - run: npx cap sync android
+      - run: node scripts/check.mjs
+      - name: Keystore from secret
+        if: ${{ env.KS != '' }}
+        env: { KS: ${{ secrets.ANDROID_KEYSTORE_B64 }} }
+        run: echo "$KS" | base64 -d > "$RUNNER_TEMP/release.jks" && echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+      - name: Build APK + AAB
+        working-directory: android
+        env:
+          APP_VERSION_CODE: ${{ github.run_number }}
+          APP_VERSION_NAME: ${{ inputs.version }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: chmod +x gradlew && ./gradlew --no-daemon assembleRelease bundleRelease
+      - uses: actions/upload-artifact@v5
+        with:
+          name: StudyHop-android-${{ inputs.target }}-${{ github.run_number }}
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab

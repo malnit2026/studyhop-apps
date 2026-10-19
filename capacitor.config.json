@@ -1,0 +1,39 @@
+{
+  "appId": "com.studyhop.app",
+  "appName": "StudyHop",
+  "webDir": "www",
+  "server": {
+    "url": "https://syllabus-coach.trestlehq.workers.dev",
+    "allowNavigation": [
+      "studyhop.com.au",
+      "*.studyhop.com.au",
+      "syllabus-coach.trestlehq.workers.dev",
+      "accounts.google.com",
+      "login.microsoftonline.com"
+    ],
+    "cleartext": false
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "backgroundColor": "#4F46E5",
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "android": {
+    "backgroundColor": "#4F46E5",
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#4F46E5",
+      "showSpinner": false,
+      "androidScaleType": "CENTER_CROP"
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#4F46E5",
+      "overlaysWebView": false
+    }
+  }
+}

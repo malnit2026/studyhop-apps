@@ -1,0 +1,52 @@
+name: Release iOS
+# Builds the iPhone/iPad app on a macOS runner with Xcode 26, signs it with a certificate and profile made for this run
+# through the App Store Connect API (Fortuna Technologies Apple account), uploads to TestFlight, then revokes the certificate.
+# Secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (whole .p8 text). Nothing else to install on your PC.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Address the app opens"
+        type: choice
+        default: test
+        options: [live, test]
+      version:
+        description: "Version shown in the store (e.g. 1.0)"
+        default: "1.0"
+jobs:
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - name: Pick Xcode 26+
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app /Applications/Xcode_2[7-9]*.app 2>/dev/null | grep -vi beta | sort -V | tail -1)
+          if [ -z "$X" ]; then echo "No Xcode 26+ on this runner:"; ls /Applications | grep Xcode; exit 1; fi
+          sudo xcode-select -s "$X"; xcodebuild -version
+      - run: npm ci
+      - run: node scripts/set-target.mjs ${{ inputs.target }}
+      - run: npx cap sync ios
+      - run: node scripts/check.mjs
+      - name: Version and build number
+        run: |
+          cd ios/App
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ inputs.version }}" App/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" App/Info.plist
+      - name: Sign, archive, export, upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: node scripts/ios-release.mjs 2>&1 | tee "$RUNNER_TEMP/ios-build.log"
+      - name: Keep logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: ios-build-logs
+          path: |
+            ${{ runner.temp }}/ios-build.log
+            ${{ runner.temp }}/export/**
+            ~/Library/Logs/gym/**
