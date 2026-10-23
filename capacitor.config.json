@@ -3,7 +3,7 @@
   "appName": "StudyHop",
   "webDir": "www",
   "server": {
-    "url": "https://syllabus-coach.trestlehq.workers.dev",
+    "url": "https://studyhop.com.au",
     "allowNavigation": [
       "studyhop.com.au",
       "*.studyhop.com.au",
@@ -35,5 +35,6 @@
       "backgroundColor": "#4F46E5",
       "overlaysWebView": false
     }
-  }
+  },
+  "appendUserAgent": "StudyHopApp"
 }

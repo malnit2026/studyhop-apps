@@ -50,3 +50,4 @@ jobs:
             ${{ runner.temp }}/ios-build.log
             ${{ runner.temp }}/export/**
             ~/Library/Logs/gym/**
+          retention-days: 3

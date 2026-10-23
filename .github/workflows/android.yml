@@ -28,9 +28,9 @@ jobs:
       - run: npx cap sync android
       - run: node scripts/check.mjs
       - name: Keystore from secret
-        if: ${{ env.KS != '' }}
-        env: { KS: ${{ secrets.ANDROID_KEYSTORE_B64 }} }
-        run: echo "$KS" | base64 -d > "$RUNNER_TEMP/release.jks" && echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: if [ -n "$KS" ]; then echo "$KS" | base64 -d > "$RUNNER_TEMP/release.jks" && echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"; fi
       - name: Build APK + AAB
         working-directory: android
         env:
@@ -46,3 +46,4 @@ jobs:
           path: |
             android/app/build/outputs/apk/release/*.apk
             android/app/build/outputs/bundle/release/*.aab
+          retention-days: 7
